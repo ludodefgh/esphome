@@ -14,7 +14,7 @@ from esphome.components.nrf52 import _resolve_toolchain
 from esphome.components.nrf52.framework import (
     _PLATFORMIO_PENV_REQUIREMENTS,
     _REQUIREMENTS,
-    TOOLCHAIN_VERSION,
+    TOOLCHAIN_VERSION_LEGACY,
     _get_penv_site_packages,
     _get_platformio_penv_path,
     _get_toolchain_platform_info,
@@ -85,7 +85,7 @@ def nrf52_dirs(setup_core: Path) -> SimpleNamespace:
     tools = get_sdk_nrf_tools_path()
     python_env = tools / "penvs" / f"v{_TEST_SDK_VERSION}"
     framework = tools / "frameworks" / f"v{_TEST_SDK_VERSION}"
-    toolchain_dir = tools / "toolchains" / TOOLCHAIN_VERSION
+    toolchain_dir = tools / "toolchains" / TOOLCHAIN_VERSION_LEGACY
     for d in (python_env, framework, toolchain_dir):
         d.mkdir(parents=True, exist_ok=True)
     zephyr_scripts = framework / "zephyr" / "scripts"
@@ -304,7 +304,7 @@ class TestCheckAndInstall:
 
         args, _ = mock_nrf52_ops.download_from_mirrors.call_args
         substitutions = args[1]
-        assert substitutions["VERSION"] == TOOLCHAIN_VERSION
+        assert substitutions["VERSION"] == TOOLCHAIN_VERSION_LEGACY
         assert substitutions["sysname"] == "linux"
         assert substitutions["machine"] == "x86_64"
         assert substitutions["extension"] == "tar.xz"
@@ -534,7 +534,7 @@ def test_get_build_env(
     )
     # Toolchain root, not the cmake/ subdir
     assert env["ZEPHYR_SDK_INSTALL_DIR"] == str(
-        tools / "toolchains" / TOOLCHAIN_VERSION
+        tools / "toolchains" / TOOLCHAIN_VERSION_LEGACY
     )
     assert "Zephyr-sdk_DIR" not in env
     # The rest of the process environment is inherited

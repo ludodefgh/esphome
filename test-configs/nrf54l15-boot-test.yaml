@@ -1,0 +1,16 @@
+esphome:
+  name: nrf54l15-boot-test
+
+external_components:
+  - source:
+      type: local
+      path: components
+
+nrf54l15_board_overlay:
+
+nrf52:
+  board: raytac_an54lq_db_15/nrf54l15/cpuapp
+  toolchain: sdk-nrf
+  bootloader: mcuboot
+  framework:
+    version: "3.4.0"
