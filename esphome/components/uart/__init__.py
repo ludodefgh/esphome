@@ -57,6 +57,9 @@ LibreTinyUARTComponent = uart_ns.class_(
     "LibreTinyUARTComponent", UARTComponent, cg.Component
 )
 HostUartComponent = uart_ns.class_("HostUartComponent", UARTComponent, cg.Component)
+ZephyrUARTComponent = uart_ns.class_(
+    "ZephyrUARTComponent", UARTComponent, cg.Component
+)
 
 
 NATIVE_UART_CLASSES = (
@@ -166,6 +169,8 @@ def _uart_declare_type(value):
         return cv.declare_id(LibreTinyUARTComponent)(value)
     if CORE.is_host:
         return cv.declare_id(HostUartComponent)(value)
+    if CORE.using_zephyr:
+        return cv.declare_id(ZephyrUARTComponent)(value)
     raise NotImplementedError
 
 
@@ -277,6 +282,17 @@ CONFIG_SCHEMA = cv.All(
 )
 
 
+def _final_validate(config):
+    if CORE.using_zephyr:
+        from .uart_zephyr import validate_zephyr_uart
+
+        validate_zephyr_uart(config)
+    return config
+
+
+FINAL_VALIDATE_SCHEMA = _final_validate
+
+
 async def debug_to_code(config, parent):
     trigger = cg.new_Pvariable(config[CONF_TRIGGER_ID], parent)
     await cg.register_component(trigger, config)
@@ -310,7 +326,12 @@ async def debug_to_code(config, parent):
 
 async def to_code(config):
     cg.add_global(uart_ns.using)
-    var = cg.new_Pvariable(config[CONF_ID])
+    if CORE.using_zephyr:
+        from .uart_zephyr import zephyr_to_code
+
+        var = await zephyr_to_code(config)
+    else:
+        var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
     cg.add(var.set_baud_rate(config[CONF_BAUD_RATE]))
@@ -533,6 +554,7 @@ _platform_filter = filter_source_files_from_platform(
         "uart_component_esp8266.cpp": {PlatformFramework.ESP8266_ARDUINO},
         "uart_component_host.cpp": {PlatformFramework.HOST_NATIVE},
         "uart_component_rp2.cpp": {PlatformFramework.RP2_ARDUINO},
+        "uart_component_zephyr.cpp": {PlatformFramework.NRF52_ZEPHYR},
         "uart_component_libretiny.cpp": {
             PlatformFramework.BK72XX_ARDUINO,
             PlatformFramework.RTL87XX_ARDUINO,

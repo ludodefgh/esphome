@@ -1,0 +1,50 @@
+esphome:
+  name: nrf54l15-radar-test
+
+external_components:
+  - source:
+      type: local
+      path: components
+
+nrf54l15_board_overlay:
+
+nrf52:
+  board: raytac_an54lq_db_15/nrf54l15/cpuapp
+  toolchain: sdk-nrf
+  bootloader: mcuboot
+  framework:
+    version: "3.4.0"
+
+logger:
+  baud_rate: 0
+
+i2c:
+  sda: P1.10
+  scl: P1.11
+  frequency: 100kHz
+
+# LD2450 exactly as firmware-nrf54l15 wires it: uart00, TX=P2.08 / RX=P2.07
+# (J4 pins 9/10), the module's factory 256000 baud.
+uart:
+  id: radar_uart
+  tx_pin: P2.08
+  rx_pin: P2.07
+  baud_rate: 256000
+  rx_buffer_size: 512
+
+ld2450:
+  uart_id: radar_uart
+
+binary_sensor:
+  - platform: ld2450
+    has_target:
+      name: "Presence"
+    has_moving_target:
+      name: "Moving target"
+    has_still_target:
+      name: "Still target"
+
+sensor:
+  - platform: ld2450
+    target_count:
+      name: "Target count"
