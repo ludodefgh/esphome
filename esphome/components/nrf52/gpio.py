@@ -42,7 +42,13 @@ def validate_gpio_pin(value):
     if value in EXTRA_ADC:
         return value
     value = _translate_pin(value)
-    if value < 0 or value > (32 + 16):
+    # nRF52840 (P0/P1, 32+16 pins) is the historical ceiling here, but nRF54L
+    # boards go up to P2 (nRF54L15: P0 has 7 pins, P1 17, P2 11 - see
+    # zephyr/dts/vendor/nordic/nrf54l_05_10_15.dtsi) - out-of-range port/pin
+    # combinations within this wider ceiling still fail at build time
+    # (DEVICE_DT_GET_OR_NULL(DT_NODELABEL(gpioN)) needs a real, enabled node),
+    # so this check only needs to reject obviously malformed pin numbers.
+    if value < 0 or value > (32 * 3 - 1):
         raise cv.Invalid(f"NRF52: Invalid pin number: {value}")
     return value
 

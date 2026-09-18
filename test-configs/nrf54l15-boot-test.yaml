@@ -17,3 +17,10 @@ nrf52:
 
 logger:
   baud_rate: 0
+
+# P2.05 is free on this breakout (not used by I2C/PWM/UART overlays) - just
+# validating that gpio.py's pin ceiling now accepts a P2.xx pin at all.
+output:
+  - platform: gpio
+    pin: P2.05
+    id: gpio_p2_smoke_test
