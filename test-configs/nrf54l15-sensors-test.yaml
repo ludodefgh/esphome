@@ -50,3 +50,32 @@ sensor:
     name: "Illuminance"
     address: 0x23
     update_interval: 30s
+
+  # Same address/mode choices as firmware-nrf54l15's overlay (SCD41 0x62,
+  # low-power periodic ~30 s; SPS30 0x69; SGP41 0x59).
+  - platform: scd4x
+    co2:
+      name: "CO2"
+    address: 0x62
+    measurement_mode: low_power_periodic
+    update_interval: 30s
+
+  - platform: sps30
+    pm_1_0:
+      name: "PM1.0"
+    pm_2_5:
+      name: "PM2.5"
+    pm_4_0:
+      name: "PM4.0"
+    pm_10_0:
+      name: "PM10"
+    address: 0x69
+    update_interval: 30s
+
+  - platform: sgp4x
+    voc_index:
+      name: "VOC Index"
+    nox_index:
+      name: "NOx Index"
+    address: 0x59
+    update_interval: 1s
