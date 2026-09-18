@@ -13,10 +13,43 @@ nRF54 family/board isn't known generically yet (see MultiSensors issue #25).
 from esphome.components.zephyr import zephyr_add_overlay, zephyr_add_prj_conf
 import esphome.config_validation as cv
 
-CONFIG_SCHEMA = cv.Schema({})
+CONFIG_SCHEMA = cv.Schema({cv.Optional("zigbee", default=False): cv.boolean})
 
 
 async def to_code(config):
+    if config["zigbee"]:
+        # What the ncs-zigbee add-on needs from the devicetree on this SoC
+        # (same three pieces firmware-nrf54l15's own overlay carries):
+        #  - its fixed flash layout (zboss_nvram, zboss_product_config, ...);
+        #    ZBOSS static-asserts on those nodes at build time
+        #  - the FULL RRAM/SRAM: the board reserves part for the FLPR core by
+        #    default, but that layout is sized against 1524 KB of RRAM
+        #  - a dedicated timer via the ncs,zigbee-timer chosen node
+        zephyr_add_overlay(
+            """
+            #include <nrf54l15_cpuapp_partitions.dtsi>
+
+            &cpuapp_rram {
+                reg = <0x0 DT_SIZE_K(1524)>;
+            };
+
+            &cpuapp_sram {
+                reg = <0x20000000 DT_SIZE_K(256)>;
+                ranges = <0x0 0x20000000 0x40000>;
+            };
+
+            / {
+                chosen {
+                    ncs,zigbee-timer = &timer20;
+                };
+            };
+
+            &timer20 {
+                status = "okay";
+            };
+            """
+        )
+
     zephyr_add_overlay(
         """
         &wdt31 {

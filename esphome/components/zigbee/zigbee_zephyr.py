@@ -95,7 +95,9 @@ zephyr_number = cv.Schema(
 
 
 async def zephyr_to_code(config: ConfigType) -> "MockObj":
-    zephyr_add_prj_conf("ZIGBEE", True)
+    from esphome.components.nrf52.framework import uses_zigbee_addon
+
+    zephyr_add_prj_conf("ZIGBEE_ADD_ON" if uses_zigbee_addon() else "ZIGBEE", True)
     zephyr_add_prj_conf("ZIGBEE_APP_UTILS", True)
     if config[CONF_ROUTER]:
         zephyr_add_prj_conf("ZIGBEE_ROLE_ROUTER", True)

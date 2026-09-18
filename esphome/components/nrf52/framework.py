@@ -71,6 +71,47 @@ def _get_toolchain_version() -> str:
     return TOOLCHAIN_VERSION_LEGACY
 
 
+# NCS 3.x no longer ships Zigbee (ZBOSS) inside sdk-nrf: subsys/zigbee and the
+# ZIGBEE_* Kconfig symbols live in the separate nrfconnect/ncs-zigbee add-on,
+# whose west manifest imports sdk-nrf at a pinned tag (verified via the tags'
+# west.yml: ncs-zigbee v1.4.0 -> sdk-nrf v3.4.0). NCS 2.9.x still has it
+# in-tree (subsys/zigbee exists at sdk-nrf v2.9.2). Only pairings verified this
+# way belong here.
+NCS_ZIGBEE_ADDON_URL = "https://github.com/nrfconnect/ncs-zigbee"
+_NCS_ZIGBEE_ADDON_REVISIONS = {"v3.4.0": "v1.4.0"}
+
+
+def _zigbee_addon_revision(version: str) -> str | None:
+    """ncs-zigbee tag to use instead of a stock sdk-nrf checkout, if any."""
+    config = CORE.config
+    if not config or "zigbee" not in config:
+        return None
+    if version in _NCS_ZIGBEE_ADDON_REVISIONS:
+        return _NCS_ZIGBEE_ADDON_REVISIONS[version]
+    framework_ver = CORE.data[KEY_CORE][KEY_FRAMEWORK_VERSION]
+    if framework_ver.major >= 3:
+        known = ", ".join(sorted(_NCS_ZIGBEE_ADDON_REVISIONS))
+        raise EsphomeError(
+            f"'zigbee' on nRF Connect SDK {version} needs the ncs-zigbee add-on, "
+            f"but no verified add-on release is known for it (known: {known}). "
+            "The stock sdk-nrf checkout has no ZIGBEE Kconfig symbols."
+        )
+    return None
+
+
+def uses_zigbee_addon() -> bool:
+    """True when the sdk-nrf build is pulled from the ncs-zigbee add-on.
+
+    The add-on renamed the root Kconfig symbol from ZIGBEE (in-tree, NCS <= 2.9)
+    to ZIGBEE_ADD_ON; the other ZIGBEE_* / ZBOSS_* symbols ESPHome sets kept
+    their names.
+    """
+    return (
+        CORE.using_toolchain_sdk_nrf
+        and _zigbee_addon_revision(_get_version_str()) is not None
+    )
+
+
 def _get_toolchain_mirrors() -> list[str]:
     if _get_toolchain_version() == TOOLCHAIN_VERSION_V1:
         return SDK_NG_TOOLCHAIN_MIRRORS_V1
@@ -104,7 +145,9 @@ def _get_python_env_path(version: str) -> Path:
 
 
 def _get_framework_path(version: str) -> Path:
-    return get_sdk_nrf_tools_path() / "frameworks" / version
+    addon = _zigbee_addon_revision(version)
+    name = f"{version}-ncs-zigbee-{addon}" if addon else version
+    return get_sdk_nrf_tools_path() / "frameworks" / name
 
 
 def _get_toolchain_path(version: str) -> Path:
@@ -307,6 +350,7 @@ def check_and_install() -> None:
             )
         sentinel.write_text(requirements_hash, encoding="utf-8")
 
+    addon = _zigbee_addon_revision(version)
     framework_path = _get_framework_path(version)
     sentinel = framework_path / ".ready"
     zephyr_reqs = framework_path / "zephyr" / "scripts" / "requirements.txt"
@@ -319,10 +363,10 @@ def check_and_install() -> None:
             "west",
             "init",
             "-m",
-            "https://github.com/nrfconnect/sdk-nrf",
+            NCS_ZIGBEE_ADDON_URL if addon else "https://github.com/nrfconnect/sdk-nrf",
             "-o=--depth=1",
             "--mr",
-            version,
+            addon or version,
             str(framework_path),
         ]
         if not run_command_ok(cmd):

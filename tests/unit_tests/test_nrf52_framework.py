@@ -630,3 +630,50 @@ def test_resolve_toolchain_rejects_unsupported() -> None:
     CORE.toolchain = Toolchain.ARDUINO
     with pytest.raises(cv.Invalid, match="Unsupported toolchain 'arduino'"):
         _resolve_toolchain({})
+
+
+# ---------------------------------------------------------------------------
+# ncs-zigbee add-on selection (NCS 3.x ships Zigbee outside sdk-nrf)
+# ---------------------------------------------------------------------------
+
+
+def _set_framework(version: str, config: dict | None) -> None:
+    CORE.data[KEY_CORE] = {KEY_FRAMEWORK_VERSION: Version.parse(version[1:])}
+    CORE.config = config
+
+
+def test_zigbee_addon_used_for_verified_ncs_version(setup_core: Path) -> None:
+    from esphome.components.nrf52.framework import (
+        _get_framework_path,
+        _zigbee_addon_revision,
+    )
+
+    _set_framework("v3.4.0", {"zigbee": {}})
+    assert _zigbee_addon_revision("v3.4.0") == "v1.4.0"
+    assert _get_framework_path("v3.4.0").name == "v3.4.0-ncs-zigbee-v1.4.0"
+
+
+def test_stock_sdk_nrf_without_zigbee(setup_core: Path) -> None:
+    from esphome.components.nrf52.framework import (
+        _get_framework_path,
+        _zigbee_addon_revision,
+    )
+
+    _set_framework("v3.4.0", {"logger": {}})
+    assert _zigbee_addon_revision("v3.4.0") is None
+    assert _get_framework_path("v3.4.0").name == "v3.4.0"
+
+
+def test_zigbee_on_ncs_2_keeps_stock_checkout(setup_core: Path) -> None:
+    from esphome.components.nrf52.framework import _zigbee_addon_revision
+
+    _set_framework("v2.9.2", {"zigbee": {}})
+    assert _zigbee_addon_revision("v2.9.2") is None
+
+
+def test_zigbee_on_unverified_ncs_3_raises(setup_core: Path) -> None:
+    from esphome.components.nrf52.framework import _zigbee_addon_revision
+
+    _set_framework("v3.3.0", {"zigbee": {}})
+    with pytest.raises(EsphomeError, match="ncs-zigbee add-on"):
+        _zigbee_addon_revision("v3.3.0")
