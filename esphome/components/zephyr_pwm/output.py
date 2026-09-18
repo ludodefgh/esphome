@@ -4,7 +4,12 @@ from typing import Any
 from esphome import pins
 import esphome.codegen as cg
 from esphome.components import output
-from esphome.components.zephyr import zephyr_add_overlay_builder, zephyr_add_prj_conf
+from esphome.components.zephyr import (
+    zephyr_add_overlay_builder,
+    zephyr_add_prj_conf,
+    zephyr_data,
+)
+from esphome.components.zephyr.const import KEY_BOARD
 import esphome.config_validation as cv
 from esphome.const import (
     CONF_ALLOW_OTHER_USES,
@@ -48,8 +53,24 @@ CONFIG_SCHEMA = cv.All(
     cv.only_on_nrf52,
 )
 
-PWM_BLOCK_COUNT = 4
 PWM_CHANNELS_PER_BLOCK = 4
+
+# nRF54L's "00/20/22/30"-style peripheral numbering has no pwm0..pwm3: the
+# application core's PWM instances are pwm20, pwm21 and pwm22 (see
+# zephyr/dts/vendor/nordic/nrf54l_05_10_15.dtsi).
+_NRF54L_BOARDS = ("raytac_an54lq_db_15/nrf54l15/cpuapp",)
+
+
+def _is_nrf54l() -> bool:
+    return zephyr_data()[KEY_BOARD] in _NRF54L_BOARDS
+
+
+def _pwm_block_count() -> int:
+    return 3 if _is_nrf54l() else 4
+
+
+def _pwm_label(block_id: int) -> str:
+    return f"pwm{20 + block_id}" if _is_nrf54l() else f"pwm{block_id}"
 
 
 @dataclass
@@ -92,9 +113,9 @@ def _allocate_blocks() -> None:
             None,
         )
         if pwm_block is None:
-            if len(pwm_blocks) >= PWM_BLOCK_COUNT:
+            if len(pwm_blocks) >= _pwm_block_count():
                 raise cv.Invalid(
-                    f"Only {PWM_BLOCK_COUNT} PWM blocks with a distinct frequency and {PWM_CHANNELS_PER_BLOCK} channels each are supported by nrf52"
+                    f"Only {_pwm_block_count()} PWM blocks with a distinct frequency and {PWM_CHANNELS_PER_BLOCK} channels each are supported by nrf52"
                 )
             pwm_block = PWMBlock(id=len(pwm_blocks), period_ns=period_ns, pins=[])
             pwm_blocks.append(pwm_block)
@@ -119,7 +140,7 @@ def _overlay_pwm() -> str:
 
     overlay_parts.extend(
         f"""
-        &pwm{block.id} {{
+        &{_pwm_label(block.id)} {{
             status = "okay";
             pinctrl-0 = <&pwm{block.id}_default_custom>;
             pinctrl-1 = <&pwm{block.id}_sleep_custom>;
@@ -168,7 +189,7 @@ async def to_code(config: ConfigType) -> None:
     pin_inverted = pin.get(CONF_INVERTED, False)
     var = cg.new_Pvariable(
         config[CONF_ID],
-        cg.RawExpression(f"DEVICE_DT_GET_OR_NULL(DT_NODELABEL(pwm{pwm_block.id}))"),
+        cg.RawExpression(f"DEVICE_DT_GET_OR_NULL(DT_NODELABEL({_pwm_label(pwm_block.id)}))"),
         channel_id,
         pin_inverted,
         pwm_block.period_ns,

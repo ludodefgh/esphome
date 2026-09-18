@@ -1,0 +1,95 @@
+esphome:
+  name: nrf54l15-fan-test
+  on_boot:
+    then:
+      - output.set_level:
+          id: fan_pwm
+          level: 30%
+
+external_components:
+  - source:
+      type: local
+      path: components
+
+nrf54l15_board_overlay:
+
+nrf52:
+  board: raytac_an54lq_db_15/nrf54l15/cpuapp
+  toolchain: sdk-nrf
+  bootloader: mcuboot
+  framework:
+    version: "3.4.0"
+
+logger:
+  # 0, not a real value: Logger::write_log_buffer_to_console_() (logger.h)
+  # gates ALL of ESPHome's own console output (any platform) on
+  # baud_rate_ > 0 - a nonzero value here forces `hardware_uart` down a path
+  # (UART0 or USB_CDC) that fails to compile on this board (see
+  # nrf54l15_board_overlay's comment on the logger prj_conf calls; tracked
+  # as a real, separate gap in issue #25). Zephyr's own printk() output
+  # (kernel banner, asserts) is unaffected by this and still reaches RTT;
+  # only ESPHome's own ESP_LOGx lines are unavailable until that gap is
+  # fixed - verified here instead by reading sensor state from target RAM.
+  baud_rate: 0
+
+# Bus + pins match firmware-nrf54l15's own overlay exactly (same physical
+# breakout/carrier): P1.10=SDA, P1.11=SCL, 100kHz (SPS30's hard ceiling,
+# already the choice made for the native firmware - see design-decisions.md
+# 2026-09-16 for why 400kHz failed on that sensor).
+i2c:
+  sda: P1.10
+  scl: P1.11
+  frequency: 100kHz
+  scan: true
+
+sensor:
+  - platform: sht4x
+    temperature:
+      name: "Temperature"
+    humidity:
+      name: "Humidity"
+    address: 0x44
+    update_interval: 30s
+
+  - platform: bh1750
+    name: "Illuminance"
+    address: 0x23
+    update_interval: 30s
+
+  # Same address/mode choices as firmware-nrf54l15's overlay (SCD41 0x62,
+  # low-power periodic ~30 s; SPS30 0x69; SGP41 0x59).
+  - platform: scd4x
+    co2:
+      name: "CO2"
+    address: 0x62
+    measurement_mode: low_power_periodic
+    update_interval: 30s
+
+  - platform: sps30
+    pm_1_0:
+      name: "PM1.0"
+    pm_2_5:
+      name: "PM2.5"
+    pm_4_0:
+      name: "PM4.0"
+    pm_10_0:
+      name: "PM10"
+    address: 0x69
+    update_interval: 30s
+
+  - platform: sgp4x
+    voc_index:
+      name: "VOC Index"
+    nox_index:
+      name: "NOx Index"
+    address: 0x59
+    update_interval: 1s
+
+# Same output as firmware-nrf54l15's fan: PWM on P1.12 at 23 kHz (inaudible
+# 20-25 kHz range already used by the ESP32 proto). zephyr_pwm picks the
+# nRF54L pwm20 instance for this board.
+output:
+  - platform: zephyr_pwm
+    id: fan_pwm
+    pin: P1.12
+    frequency: 23kHz
