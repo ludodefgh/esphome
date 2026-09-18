@@ -25,14 +25,30 @@ async def to_code(config):
         """
     )
 
+    # logger: hardware_uart only ever tries `uart0`/`uart1`/USB CDC, via
+    # DT_NODELABEL() (logger_zephyr.cpp) - a devicetree *label* lookup, not
+    # an *alias* lookup (DT_ALIAS(), what the watchdog fix above actually
+    # uses). Neither label exists on this SoC at all (real peripheral labels
+    # are uart00/uart20/uart21/uart22/uart30 - no plain "uart0"), so
+    # `aliases { uart0 = &uart20; }` doesn't help DT_NODELABEL() and
+    # `&uart0 { ... }` (logger/__init__.py's own overlay, needed once
+    # baud_rate > 0) fails to compile outright ("undefined node label
+    # 'uart0'"). USB_CDC (baud_rate>0's other option) fails the same way -
+    # needs a `zephyr_udc0` node this breakout doesn't have wired at all.
+    # Getting ESPHome's own logger output onto uart20 (the board's actual
+    # default console UART, already enabled) needs DT_NODELABEL(uart0)
+    # itself made board-aware in logger_zephyr.cpp, a real but separate fix
+    # (see MultiSensors issue #25) - not done here. `baud_rate: 0` stays the
+    # working choice for now: RTT keeps carrying Zephyr's own printk()
+    # output (banner, asserts, etc.) since that path never goes through
+    # Logger's baud_rate gate at all; only ESPHome's *own* ESP_LOGx lines are
+    # unavailable until that fix lands, verified instead by reading sensor
+    # state directly from target RAM over the debug probe.
+
     # RTT logging: what the `debug` component would enable, without the rest
     # of it - debug_zephyr.cpp pokes nRF52-specific NRF_UICR fields
     # (PSELRESET/NFCPINS/NRFFW/NRFHW) that don't exist on nRF54L15's UICR
     # layout, so pulling in `debug:` wholesale fails to compile on this SoC.
-    # logger_zephyr.cpp's write_msg_() already calls printk() unconditionally
-    # when CONFIG_PRINTK is set (on by default) - routing printk to RTT here
-    # is enough, paired with `logger: baud_rate: 0` in the YAML so the logger
-    # component skips its UART path entirely (no uart0 on this board either).
     #
     # RTT_CONSOLE lives under `if CONSOLE` in
     # zephyr/drivers/console/Kconfig, but nrf52's to_code() sets

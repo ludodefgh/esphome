@@ -302,6 +302,11 @@ async def to_code(config: ConfigType) -> None:
         i2c = "i2c0"
         if zephyr_data()[KEY_BOARD] == "xiao_ble":
             i2c = "i2c1"
+        elif zephyr_data()[KEY_BOARD] == "raytac_an54lq_db_15/nrf54l15/cpuapp":
+            # nRF54L's "00/20/22/30"-style instance numbering has no i2c0 at
+            # all; i2c22 is the instance this board's low-speed sensor bus
+            # uses (see firmware-nrf54l15's own overlay, same physical bus).
+            i2c = "i2c22"
         zephyr_add_overlay(
             f"""
                 &pinctrl {{
@@ -318,6 +323,12 @@ async def to_code(config: ConfigType) -> None:
                             low-power-enable;
                         }};
                     }};
+                }};
+                &{i2c} {{
+                    status = "okay";
+                    pinctrl-0 = <&{i2c}_default>;
+                    pinctrl-1 = <&{i2c}_sleep>;
+                    pinctrl-names = "default", "sleep";
                 }};
             """
         )
