@@ -1,0 +1,31 @@
+esphome:
+  name: nrf54l15-mic-test
+
+external_components:
+  - source:
+      type: local
+      path: components
+
+nrf54l15_board_overlay:
+
+nrf52:
+  board: raytac_an54lq_db_15/nrf54l15/cpuapp
+  toolchain: sdk-nrf
+  bootloader: mcuboot
+  framework:
+    version: "3.4.0"
+
+logger:
+  baud_rate: 0
+
+# INMP441 on the NRF54L_breakout adapter (J1), i2s20 -> P1:
+#   BCLK (SCK) P1.13 = J1 pin 6, LRCL (WS) P1.14 = J1 pin 7, DOUT (SD) P1.09 = J1 pin 2
+#   VDD on 3V3 only, L/R (SEL) on GND -> left channel.
+sensor:
+  - platform: zephyr_i2s_mic
+    name: "Sound level"
+    bclk_pin: P1.13
+    lrclk_pin: P1.14
+    din_pin: P1.09
+    channel: left
+    update_interval: 5s
