@@ -1,0 +1,119 @@
+esphome:
+  name: nrf54l15-zigbee-full
+
+external_components:
+  - source:
+      type: local
+      path: components
+
+nrf54l15_board_overlay:
+  zigbee: true
+
+nrf52:
+  board: raytac_an54lq_db_15/nrf54l15/cpuapp
+  toolchain: sdk-nrf
+  bootloader: mcuboot
+  framework:
+    version: "3.4.0"
+
+# Sensors that have a standard ZCL cluster (temperature, humidity, illuminance,
+# CO2, PM2.5, occupancy) use it and share endpoints; the rest are Analog/Binary
+# Input clusters packed onto the remaining slots. ZBOSS caps a device at 8
+# endpoints (prebuilt library), see MultiSensors design-decisions.md.
+zigbee:
+  model: multisensors-nrf54l15
+  standard_clusters: true
+
+logger:
+  baud_rate: 0
+
+i2c:
+  sda: P1.10
+  scl: P1.11
+  frequency: 100kHz
+
+# LD2450 wired as firmware-nrf54l15: uart00, TX=P2.08 / RX=P2.07, 256000 baud
+uart:
+  id: radar_uart
+  tx_pin: P2.08
+  rx_pin: P2.07
+  baud_rate: 256000
+  rx_buffer_size: 512
+
+ld2450:
+  uart_id: radar_uart
+
+output:
+  - platform: zephyr_pwm
+    id: fan_pwm
+    pin: P1.12
+    frequency: 23kHz
+
+number:
+  - platform: template
+    name: "Fan"
+    min_value: 0
+    max_value: 100
+    step: 1
+    unit_of_measurement: "%"
+    optimistic: true
+    initial_value: 0
+    set_action:
+      - output.set_level:
+          id: fan_pwm
+          level: !lambda "return x / 100.0f;"
+
+binary_sensor:
+  - platform: ld2450
+    has_target:
+      name: "Presence"
+      device_class: presence
+    has_moving_target:
+      name: "Moving"
+    has_still_target:
+      name: "Still"
+
+sensor:
+  - platform: sht4x
+    temperature:
+      name: "Temperature"
+    humidity:
+      name: "Humidity"
+    address: 0x44
+    update_interval: 30s
+
+  - platform: bh1750
+    name: "Illuminance"
+    address: 0x23
+    update_interval: 30s
+
+  - platform: scd4x
+    co2:
+      name: "CO2"
+    address: 0x62
+    measurement_mode: low_power_periodic
+    update_interval: 30s
+
+  - platform: sps30
+    pm_1_0:
+      name: "PM1_0"
+    pm_2_5:
+      name: "PM2_5"
+    pm_4_0:
+      name: "PM4_0"
+    pm_10_0:
+      name: "PM10"
+    address: 0x69
+    update_interval: 30s
+
+  - platform: sgp4x
+    voc_index:
+      name: "VOC_Index"
+    nox_index:
+      name: "NOx_Index"
+    address: 0x59
+    update_interval: 1s
+
+  - platform: ld2450
+    target_count:
+      name: "Target_count"

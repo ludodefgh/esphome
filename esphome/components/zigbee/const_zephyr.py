@@ -6,9 +6,13 @@ CONF_ZIGBEE_SWITCH = "zigbee_switch"
 CONF_ZIGBEE_NUMBER = "zigbee_number"
 CONF_SLEEPY = "sleepy"
 CONF_IEEE802154_VENDOR_OUI = "ieee802154_vendor_oui"
+CONF_STANDARD_CLUSTERS = "standard_clusters"
 
 # Keys for CORE.data storage
 KEY_EP_NUMBER = "ep_number"
+KEY_STD_ENTITIES = "std_entities"
+KEY_STD_PLAN = "std_plan"
+KEY_EP_SPECS = "ep_specs"
 
 # External ZBOSS SDK types (just strings for codegen)
 ZB_ZCL_BASIC_ATTRS_EXT_T = "zb_zcl_basic_attrs_ext_t"

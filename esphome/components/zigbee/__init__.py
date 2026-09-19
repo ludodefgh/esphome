@@ -33,6 +33,7 @@ from .const import (
     zigbee_ns,
 )
 from .const_zephyr import (
+    CONF_STANDARD_CLUSTERS,
     CONF_IEEE802154_VENDOR_OUI,
     CONF_MAX_EP_NUMBER_ZEPHYR,
     CONF_SLEEPY,
@@ -129,6 +130,9 @@ CONFIG_SCHEMA = cv.All(
             cv.OnlyWith(CONF_SLEEPY, "nrf52", default=False): cv.All(
                 cv.boolean,
             ),
+            cv.OnlyWith(CONF_STANDARD_CLUSTERS, "nrf52", default=False): cv.All(
+                cv.boolean,
+            ),
         }
     ).extend(cv.COMPONENT_SCHEMA),
     _validate_router_sleepy,
@@ -168,7 +172,16 @@ def validate_number_of_ep(config: ConfigType) -> ConfigType:
     return config
 
 
+def plan_endpoints(config: ConfigType) -> ConfigType:
+    if CORE.is_nrf52:
+        from .zigbee_zephyr import plan_zephyr_endpoints
+
+        plan_zephyr_endpoints(config)
+    return config
+
+
 FINAL_VALIDATE_SCHEMA = cv.All(
+    plan_endpoints,
     validate_number_of_ep,
     final_validate_esp32,
 )
@@ -258,6 +271,10 @@ def validate_binary_sensor(config: ConfigType) -> ConfigType:
         return config
     if CORE.is_esp32:
         return validate_binary_sensor_esp32(config)
+    if CORE.is_nrf52:
+        from .zigbee_zephyr import record_std_entity
+
+        record_std_entity("binary_sensor", config)
     return consume_endpoint(config)
 
 
@@ -266,6 +283,10 @@ def validate_sensor(config: ConfigType) -> ConfigType:
         return config
     if CORE.is_esp32:
         return validate_sensor_esp32(config)
+    if CORE.is_nrf52:
+        from .zigbee_zephyr import record_std_entity
+
+        record_std_entity("sensor", config)
     return consume_endpoint(config)
 
 
