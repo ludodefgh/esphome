@@ -1,0 +1,85 @@
+# nPM1300 PMIC on the MultiSensors Battery board (nPM1300 U4: I2C 0x6B on the
+# same bus as the sensors, GPIO0 -> P1.08, LSOUT1 -> LD2410S on J4, LED0 -> D3).
+# Compile test only: no Battery board exists yet. Charger values are placeholders
+# to be checked against the real cell.
+esphome:
+  name: nrf54l15-npm1300-test
+
+external_components:
+  - source:
+      type: local
+      path: components
+
+nrf54l15_board_overlay:
+
+nrf52:
+  board: raytac_an54lq_db_15/nrf54l15/cpuapp
+  toolchain: sdk-nrf
+  bootloader: mcuboot
+  framework:
+    version: "3.4.0"
+
+logger:
+  baud_rate: 0
+
+i2c:
+  sda: P1.10
+  scl: P1.11
+  frequency: 100kHz
+
+npm1300:
+  id: pmic
+  interrupt_pin: P1.08
+  update_interval: 30s
+  charger:
+    termination_voltage: 4.2V
+    charge_current: 100mA
+    thermistor: none
+
+sensor:
+  - platform: npm1300
+    battery_voltage:
+      name: "Battery voltage"
+    battery_current:
+      name: "Battery current"
+    die_temperature:
+      name: "PMIC temperature"
+    usb_current_limit:
+      name: "USB current limit"
+
+binary_sensor:
+  - platform: npm1300
+    usb_connected:
+      name: "USB connected"
+    charging:
+      name: "Charging"
+    charge_complete:
+      name: "Charge complete"
+    charger_error:
+      name: "Charger error"
+
+text_sensor:
+  - platform: npm1300
+    charger_status:
+      name: "Charger status"
+    charger_error:
+      name: "Charger error reason"
+
+switch:
+  - platform: npm1300
+    id: radar_power
+    name: "Radar power"
+    channel: 1
+    restore_mode: ALWAYS_ON
+
+button:
+  - platform: template
+    name: "Ship mode"
+    on_press:
+      - npm1300.enter_ship_mode: pmic
+  - platform: template
+    name: "BUCK2 forced PWM"
+    on_press:
+      - npm1300.set_buck2_pwm:
+          id: pmic
+          pwm: true
