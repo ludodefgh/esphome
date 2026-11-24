@@ -135,8 +135,7 @@ void Npm1300Component::update() {
   if (this->battery_temperature_sensor_ != nullptr &&
       sensor_channel_get(this->charger_, SENSOR_CHAN_GAUGE_TEMP, &val) == 0)
     this->battery_temperature_sensor_->publish_state(sensor_value_to_float(&val));
-  if (this->die_temperature_sensor_ != nullptr &&
-      sensor_channel_get(this->charger_, SENSOR_CHAN_DIE_TEMP, &val) == 0)
+  if (this->die_temperature_sensor_ != nullptr && sensor_channel_get(this->charger_, SENSOR_CHAN_DIE_TEMP, &val) == 0)
     this->die_temperature_sensor_->publish_state(sensor_value_to_float(&val));
   if (this->usb_current_limit_sensor_ != nullptr)
     this->usb_current_limit_sensor_->publish_state(
